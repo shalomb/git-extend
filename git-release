@@ -2,7 +2,8 @@
 
 # release
 
-# Prepare a release by bumping up 
+# Prepare a release by bumping the version number and committing the
+# CHANGELOG file for the upcoming release.
 
 set -euo pipefail
 
@@ -15,14 +16,14 @@ EOF
 exit
 fi
 
-if (set +e; : CHANGELOG*); then
-  changelog=( CHANGELOG* )
+if (set +e; : @(CHANGELOG|changelog)*) &>/dev/null; then
+  changelog=( @(CHANGELOG|changelog)* )
 else
   changelog='CHANGELOG.md'
 fi
 
 cur_branch=$(git rev-parse --abbrev-ref HEAD)
-prev_tag=$(git describe --abbrev=0)
+prev_tag=$(git describe --abbrev=0 2>/dev/null || true)
 new_tag=
 
 if [[ ${1-} == v* ]]; then
@@ -60,8 +61,9 @@ elif [[ $prev_tag ]]; then
 fi
 
 if [[ -z $new_tag ]]; then
-  echo "Target tag for release is not specified and could not be determined"
-  exit 3
+  echo >&2 "Target tag for release is not specified and could not be determined"
+  echo >&2 "Assuming release is the first and so setting tag to v0.1.0"
+  new_tag='v0.1.0'
 fi
 
 tmpfile=$(mktemp --tmpdir --suffix=md "CHANGELOG.md-$new_tag-XXXXXX")
