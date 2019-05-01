@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# changelog
+
+# Emit the commit messages between two git revisions for a CHANGELOG skeleton
+
+set -euo pipefail
+
+if [[ ${1-} == @(-h|--help) ]]; then
+  cat <<EOF
+${0##*/} [<revision range>
+EOF
+  exit
+fi
+
+[[ ${1-} == @(-x|--debug) ]] && { DEBUG=1; shift; }
+
+rev1=${1:-$(git describe --abbrev=0 2>/dev/null || true)}
+[[ -z $rev1 ]] && rev1=$(git rev-list --abbrev-commit --max-parents=0 HEAD)
+
+rev2=${2:-HEAD}
+
+if [[ ${DEBUG-} ]]; then
+  echo "rev1: $rev1"
+  echo "rev2: $rev2"
+fi >&2
+
+GIT_PAGER=cat                      \
+  git log                          \
+    --oneline \
+    --decorate --graph --no-merges \
+    --pretty=format:'%s'           \
+    $rev1..$rev2
+
+echo
+
+# vim:ft=sh
+
