@@ -2,7 +2,8 @@
 
 # release
 
-# Prepare a release by bumping up
+# Prepare a release by bumping the version number and committing the
+# CHANGELOG file for the upcoming release.
 
 set -euo pipefail
 

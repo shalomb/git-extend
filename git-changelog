@@ -27,7 +27,6 @@ fi >&2
 
 GIT_PAGER=cat                      \
   git log                          \
-    --oneline \
     --decorate --graph --no-merges \
     --pretty=format:'%s'           \
     $rev1..$rev2
