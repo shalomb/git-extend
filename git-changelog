@@ -1,0 +1,22 @@
+#!/bin/bash
+
+# changelog
+
+# Emit the commit messages between two commits/tag/refs so they can be
+# used as the foundation to edit a proper CHANGELOG
+
+set -euo pipefail
+
+last_tag=${1:-$(git describe --abbrev=0)}
+tip=${2:-HEAD}
+
+if [[ ${DEBUG-} ]]; then
+  echo "last_tag: $last_tag"
+  echo "tip:      $tip"
+fi
+
+GIT_PAGER=cat git log --decorate --graph --no-merges --pretty=format:'%s' $last_tag..$tip
+echo
+
+# vim:ft=sh
+

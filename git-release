@@ -1,0 +1,106 @@
+#!/bin/bash
+
+# release
+
+# Prepare a release by bumping up 
+
+set -euo pipefail
+
+shopt -s nullglob failglob extglob
+
+if [[ ${1-} == -h ]]; then
+  cat <<EOF
+[git checkout release/v1.0 &&] ${0##*/} [<version>|point|minor|major]
+EOF
+exit
+fi
+
+if (set +e; : CHANGELOG*); then
+  changelog=( CHANGELOG* )
+else
+  changelog='CHANGELOG.md'
+fi
+
+cur_branch=$(git rev-parse --abbrev-ref HEAD)
+prev_tag=$(git describe --abbrev=0)
+new_tag=
+
+if [[ ${1-} == v* ]]; then
+  new_tag="${1-}"
+
+elif [[ ${1-} == @(bugfix|hotfix|major|minor|patch|point) ]]; then
+  _prev_tag="${prev_tag%%-*}"  # Drop any trailing identifiers
+  if [[ $1 == @(bugfix|hotfix|patch|point) ]]; then
+    # take v1.0.1 -> v1.0.2
+    o="${_prev_tag##*.}"
+    n=$(( o + 1 ))
+    new_tag="${_prev_tag%%$o}$n"
+  elif [[ $1 == minor ]]; then
+    # take v1.0.1 -> v1.1.0
+    t="${_prev_tag%.*}"
+    o="${t##*.}"
+    n=$(( o + 1 ))
+    new_tag="${t%%$o}$n.0"
+  elif [[ $1 == major ]]; then
+    # take v1.0.1 -> v2.0.0
+    t="${_prev_tag%%.*}"
+    o="${t##[!0-9]}"
+    n=$(( o + 1 ))
+    new_tag="${t%%$o}$n.0.0"
+  fi
+
+elif [[   $cur_branch == @(bugfix|hotfix|release)@(-|/)* ]]; then
+  new_tag="${cur_branch##@(bugfix|hotfix|release)@(-|/)*}"
+
+elif [[ $prev_tag ]]; then
+  # no args were passed but if current branch has a tag (a la trunk-based-dev,
+  # git(hub|lab)flow, etc), let's assume we're making a point release
+  exec "$0" point
+
+fi
+
+if [[ -z $new_tag ]]; then
+  echo "Target tag for release is not specified and could not be determined"
+  exit 3
+fi
+
+tmpfile=$(mktemp --tmpdir --suffix=md "CHANGELOG.md-$new_tag-XXXXXX")
+
+function cleanup() {
+  rm -f "$tmpfile"
+}
+
+trap cleanup EXIT INT
+
+{
+  title="$new_tag - $(date +%FT%T)"
+cat <<EOF
+$title
+$(echo -n "$title" | tr -c $'\0' '-')
+
+$(changelog "$prev_tag" HEAD)
+
+EOF
+  [[ -e $changelog ]] && cat "$changelog"
+} > "$tmpfile"
+
+if [[ $EDITOR == @(vi*|*/vi*) ]]; then
+  args=(-c 4)
+fi
+
+"$EDITOR" "$tmpfile" ${args[@]}
+
+if ! diff -qbacs "$tmpfile" "$changelog" &>/dev/null; then
+  cp "$tmpfile" "$changelog"
+  git add "$changelog"
+	{ echo "Update $changelog for $new_tag"
+    echo
+		echo "$changelog updated by '${0##*/} $@' on $cur_branch"
+  } | git commit -m "$(< /dev/stdin)"
+  echo "Tag ($new_tag) not pushed .. when ready, issue"
+  echo "   git push --tags"
+else
+  echo 'Empty release notes .. aborting'
+  exit 3
+fi
+
