@@ -97,6 +97,7 @@ cat <<EOF
 $title
 $(echo -n "$title" | tr -c $'\0' '-')
 
+$content
 
 EOF
   [[ -e $changelog ]] && cat "$changelog"
