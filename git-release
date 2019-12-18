@@ -107,7 +107,7 @@ if [[ $EDITOR == @(vi*|*/vi*) ]]; then
   args=(-c 4)
 fi
 
-echo "$EDITOR" "$tmpfile" ${args[@]}
+"$EDITOR" "$tmpfile" ${args[@]}
 
 if ! diff -qbacs "$tmpfile" "$changelog" &>/dev/null; then
   cp "$tmpfile" "$changelog"
