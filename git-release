@@ -107,7 +107,6 @@ if [[ $EDITOR == @(vi*|*/vi*) ]]; then
   args=(-c 4)
 fi
 
-set -xv
 echo "$EDITOR" "$tmpfile" ${args[@]}
 
 if ! diff -qbacs "$tmpfile" "$changelog" &>/dev/null; then
@@ -124,7 +123,6 @@ if ! diff -qbacs "$tmpfile" "$changelog" &>/dev/null; then
   if (( under_gitflow == 1 )); then
     git flow release finish -T "$new_tag" -m "$message"
   else
-    set -xv
     git tag -a "$new_tag" -m "$message"
     echo "Tag ($new_tag) not pushed .. when ready, issue"
     echo "   git push --tags"
@@ -134,3 +132,4 @@ else
   exit 3
 fi
 
+# vi:ft=bash
