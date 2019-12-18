@@ -61,8 +61,9 @@ gba          # git branch --all --verbose
 ### Syncing
 
 ```
-gPA         # git push --all --tags
 gp          # git pull
+gP          # git push
+gPA         # git push --all --tags  # Useful after a release
 gsync       # git fetch --all && git pull .. useful before merge/rebase
             #                                from other branches
 ```
@@ -78,4 +79,5 @@ gwipe       # Commit and then do a git reset --hard
             # Why? So you can always recover even this work via the reflog
 ```
 
-... And many other goodies
+... And many other goodies. Most commands support tab-completion too.
+
