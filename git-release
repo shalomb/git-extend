@@ -9,6 +9,9 @@ set -euo pipefail
 
 shopt -s nullglob failglob extglob
 
+[[ ${1-} == -x ]] && set -xv
+DEBUG=0; [[ ${1-} == -d ]] && DEBUG=1
+
 if [[ ${1-} == -h ]]; then
   cat <<EOF
 [git checkout release/v1.0 &&] ${0##*/} [<version>|point|minor|major]
@@ -16,15 +19,16 @@ EOF
 exit
 fi
 
-if (set +e; : @(CHANGELOG|changelog)*) &>/dev/null; then
-  changelog=( @(CHANGELOG|changelog)* )
-else
+changelog=( CHANGELOG.* @(CHANGELOG|changelog)* )
+if [[ -z $changelog ]]; then
   changelog='CHANGELOG.md'
 fi
 
 cur_branch=$(git rev-parse --abbrev-ref HEAD)
-prev_tag=$(git describe --abbrev=0 2>/dev/null || true)
+prev_tag=$(git describe --abbrev=0 --tags 2>/dev/null || true)
 new_tag=
+under_gitflow=0
+git config --get gitflow.branch.master &>/dev/null && under_gitflow=1
 
 if [[ ${1-} == v* ]]; then
   new_tag="${1-}"
@@ -51,13 +55,18 @@ elif [[ ${1-} == @(bugfix|hotfix|major|minor|patch|point) ]]; then
   fi
 
 elif [[   $cur_branch == @(bugfix|hotfix|release)@(-|/)* ]]; then
-  new_tag="${cur_branch##@(bugfix|hotfix|release)@(-|/)*}"
+  new_tag="${cur_branch##@(bugfix|hotfix|release)@(-|/)}"
 
 elif [[ $prev_tag ]]; then
   # no args were passed but if current branch has a tag (a la trunk-based-dev,
   # git(hub|lab)flow, etc), let's assume we're making a point release
   exec "$0" point
 
+fi
+
+if (( under_gitflow == 1 )) && [[ $cur_branch != release@(-|/)* ]]; then
+  echo "Last identified tag was '$prev_tag', Creating 'release/$new_tag'"
+  git flow release start "$new_tag"
 fi
 
 if [[ -z $new_tag ]]; then
@@ -74,13 +83,20 @@ function cleanup() {
 
 trap cleanup EXIT INT
 
+content=$(changelog "$prev_tag" HEAD)
+
+if [[ -z $content ]]; then
+  echo >&2 "No new changelog content for '$changelog'"
+  echo >&2 "  Is the current commit a merge commit?"
+  exit 42
+fi
+
 {
   title="$new_tag - $(date +%FT%T)"
 cat <<EOF
 $title
 $(echo -n "$title" | tr -c $'\0' '-')
 
-$(changelog "$prev_tag" HEAD)
 
 EOF
   [[ -e $changelog ]] && cat "$changelog"
@@ -90,17 +106,28 @@ if [[ $EDITOR == @(vi*|*/vi*) ]]; then
   args=(-c 4)
 fi
 
-"$EDITOR" "$tmpfile" ${args[@]}
+set -xv
+echo "$EDITOR" "$tmpfile" ${args[@]}
 
 if ! diff -qbacs "$tmpfile" "$changelog" &>/dev/null; then
   cp "$tmpfile" "$changelog"
   git add "$changelog"
-	{ echo "Update $changelog for $new_tag"
-    echo
-		echo "$changelog updated by '${0##*/} $@' on $cur_branch"
-  } | git commit -m "$(< /dev/stdin)"
-  echo "Tag ($new_tag) not pushed .. when ready, issue"
-  echo "   git push --tags"
+    { echo "Update $changelog for $new_tag"
+      echo
+      echo "$changelog updated by '${0##*/} $@' on $cur_branch"
+  } | git commit -m "$(</dev/stdin)"
+
+  message=$(sed -n '4p' "$changelog")
+  [[ -z $message ]] && message="$new_tag"
+
+  if (( under_gitflow == 1 )); then
+    git flow release finish -T "$new_tag" -m "$message"
+  else
+    set -xv
+    git tag -a "$new_tag" -m "$message"
+    echo "Tag ($new_tag) not pushed .. when ready, issue"
+    echo "   git push --tags"
+  fi
 else
   echo 'Empty release notes .. aborting'
   exit 3
