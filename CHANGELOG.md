@@ -1,5 +1,12 @@
+v0.1.2 - 2019-12-18T01:29:19
+----------------------------
+
+* Fix CHANGELOG.mdcontent not being written
+
 v0.1.1 - 2019-12-18T01:25:30
 ----------------------------
+
+* Fixup edge-cases in releasing
 
 
 v0.1.0 - 2019-05-01T22:19:59
